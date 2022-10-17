@@ -71,7 +71,7 @@ static int sap_write_header(AVFormatContext *s)
     struct SAPState *sap = s->priv_data;
     char host[1024], path[1024], url[1024], announce_addr[50] = "";
     char *option_list;
-    int port = 9875, base_port = 5004, i, pos = 0, same_port = 0, ttl = 255;
+    int port = 9875, base_port = 5004, i, pos = 0, same_port = 0, ttl = 255, pkt_size = 0;
     AVFormatContext **contexts = NULL;
     int ret = 0;
     struct sockaddr_storage localaddr;
@@ -100,6 +100,9 @@ static int sap_write_header(AVFormatContext *s)
         }
         if (av_find_info_tag(buf, sizeof(buf), "ttl", option_list)) {
             ttl = strtol(buf, NULL, 10);
+        }
+        if (av_find_info_tag(buf, sizeof(buf), "pkt_size", option_list)) {
+            pkt_size = strtol(buf, NULL, 10);
         }
         if (av_find_info_tag(buf, sizeof(buf), "announce_addr", option_list)) {
             av_strlcpy(announce_addr, buf, sizeof(announce_addr));
@@ -148,6 +151,11 @@ static int sap_write_header(AVFormatContext *s)
 
         ff_url_join(url, sizeof(url), "rtp", NULL, host, base_port,
                     "?ttl=%d", ttl);
+        if (pkt_size) {
+            char pkt_size_param[50];
+            av_strlcatf(url, sizeof(url), "&pkt_size=%d", pkt_size);
+        }
+        av_log(s, AV_LOG_DEBUG, "RTP URL: %s", url);
         if (!same_port)
             base_port += 2;
         ret = ffurl_open_whitelist(&fd, url, AVIO_FLAG_WRITE,
